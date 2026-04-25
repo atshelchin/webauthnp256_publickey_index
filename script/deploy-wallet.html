@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deploy WebAuthnP256PublicKeyIndex</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; background: #0a0a0a; color: #e0e0e0; }
+    h1 { font-size: 1.3em; margin-bottom: 8px; }
+    p.sub { color: #888; font-size: 0.85em; margin-bottom: 24px; }
+    .card { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    label { display: block; font-size: 0.8em; color: #999; margin-bottom: 6px; }
+    select, input { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 8px; background: #111; color: #fff; font-size: 0.9em; margin-bottom: 12px; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #2563eb; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-secondary { background: #333; color: #ccc; }
+    .status { padding: 12px; border-radius: 8px; font-size: 0.85em; word-break: break-all; margin-top: 8px; }
+    .status.info { background: #1e3a5f; border: 1px solid #3b82f6; }
+    .status.success { background: #14532d; border: 1px solid #22c55e; }
+    .status.error { background: #450a0a; border: 1px solid #ef4444; }
+    .hidden { display: none; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    code { background: #222; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+    .addr { font-family: monospace; font-size: 0.82em; color: #93c5fd; }
+    #predicted-address { margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Deploy WebAuthnP256PublicKeyIndex</h1>
+  <p class="sub">CREATE2 via Deterministic Deployment Proxy &mdash; sign with your mobile wallet</p>
+
+  <div class="card">
+    <label>Network</label>
+    <select id="chain-select">
+      <option value="1">Ethereum Mainnet</option>
+      <option value="11155111">Sepolia Testnet</option>
+      <option value="10">Optimism</option>
+      <option value="8453">Base</option>
+      <option value="42161">Arbitrum One</option>
+      <option value="137">Polygon</option>
+    </select>
+
+    <label>Salt (bytes32)</label>
+    <input id="salt-input" type="text" value="0x0000000000000000000000000000000000000000000000000000000000000000" />
+
+    <label>Contract Bytecode (paste <code>forge inspect WebAuthnP256PublicKeyIndex bytecode</code> output)</label>
+    <textarea id="bytecode-input" rows="4" style="width:100%;padding:10px;border:1px solid #444;border-radius:8px;background:#111;color:#fff;font-size:0.8em;font-family:monospace;resize:vertical;" placeholder="0x6080..."></textarea>
+
+    <div id="predicted-address" class="hidden">
+      <label>Predicted deploy address</label>
+      <div class="addr" id="predicted-addr-value"></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="btn-connect" class="btn-primary">Connect Wallet</button>
+    <button id="btn-deploy" class="btn-primary" disabled>Deploy</button>
+  </div>
+
+  <div id="status-area"></div>
+
+  <script type="module">
+    import { BrowserProvider, keccak256, concat } from 'https://cdn.jsdelivr.net/npm/ethers@6.13.4/+esm';
+
+    const PROXY = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+
+    const statusArea = document.getElementById('status-area');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnDeploy = document.getElementById('btn-deploy');
+    const bytecodeInput = document.getElementById('bytecode-input');
+    const saltInput = document.getElementById('salt-input');
+    const chainSelect = document.getElementById('chain-select');
+    const predictedDiv = document.getElementById('predicted-address');
+    const predictedValue = document.getElementById('predicted-addr-value');
+
+    let provider = null;
+    let signer = null;
+
+    function log(msg, type = 'info') {
+      const div = document.createElement('div');
+      div.className = `status ${type}`;
+      div.innerHTML = msg;
+      statusArea.prepend(div);
+    }
+
+    function predictAddress(salt, bytecode) {
+      const initCodeHash = keccak256(bytecode);
+      const encoded = concat([
+        '0xff',
+        PROXY,
+        salt,
+        initCodeHash
+      ]);
+      const hash = keccak256(encoded);
+      return '0x' + hash.slice(26);
+    }
+
+    function updatePrediction() {
+      const bc = bytecodeInput.value.trim();
+      const salt = saltInput.value.trim();
+      if (bc && bc.startsWith('0x') && bc.length > 10 && salt.length === 66) {
+        try {
+          const addr = predictAddress(salt, bc);
+          predictedValue.textContent = addr;
+          predictedDiv.classList.remove('hidden');
+        } catch { predictedDiv.classList.add('hidden'); }
+      } else {
+        predictedDiv.classList.add('hidden');
+      }
+    }
+
+    bytecodeInput.addEventListener('input', updatePrediction);
+    saltInput.addEventListener('input', updatePrediction);
+
+    // --- Wallet connect (fallback: injected provider like MetaMask browser extension) ---
+
+    btnConnect.addEventListener('click', async () => {
+      try {
+        if (!window.ethereum) {
+          log('No wallet found. Please install MetaMask or another browser wallet extension.', 'error');
+          return;
+        }
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        provider = new BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        const addr = await signer.getAddress();
+        const network = await provider.getNetwork();
+        log(`Connected: <code>${addr}</code> on chain ${network.chainId}`, 'success');
+        btnConnect.textContent = `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+        btnDeploy.disabled = false;
+      } catch (e) {
+        log(`Connect failed: ${e.message}`, 'error');
+      }
+    });
+
+    btnDeploy.addEventListener('click', async () => {
+      const bytecode = bytecodeInput.value.trim();
+      const salt = saltInput.value.trim();
+
+      if (!bytecode || !bytecode.startsWith('0x')) {
+        log('Please paste the contract bytecode (starting with 0x)', 'error');
+        return;
+      }
+      if (salt.length !== 66) {
+        log('Salt must be a 66-char hex string (bytes32)', 'error');
+        return;
+      }
+
+      const predicted = predictAddress(salt, bytecode);
+      log(`Predicted address: <code>${predicted}</code>`);
+
+      // Check if already deployed
+      try {
+        const code = await provider.getCode(predicted);
+        if (code && code !== '0x') {
+          log(`Contract already deployed at ${predicted}!`, 'error');
+          return;
+        }
+      } catch {}
+
+      // Build calldata: salt (32 bytes) + initcode (no 0x prefix)
+      const calldata = salt + bytecode.slice(2);
+
+      btnDeploy.disabled = true;
+      btnDeploy.textContent = 'Waiting for signature...';
+
+      try {
+        const tx = await signer.sendTransaction({
+          to: PROXY,
+          data: calldata,
+          // Gas estimation will happen automatically
+        });
+        log(`Tx sent: <code>${tx.hash}</code>`, 'info');
+        log('Waiting for confirmation...');
+
+        const receipt = await tx.wait();
+        log(`Deployed at <code>${predicted}</code> in block ${receipt.blockNumber} | Gas: ${receipt.gasUsed.toString()}`, 'success');
+      } catch (e) {
+        log(`Deploy failed: ${e.message}`, 'error');
+      } finally {
+        btnDeploy.disabled = false;
+        btnDeploy.textContent = 'Deploy';
+      }
+    });
+  </script>
+</body>
+</html>
