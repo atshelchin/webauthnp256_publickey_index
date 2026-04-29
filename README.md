@@ -46,7 +46,7 @@ This ensures every key traces directly back to the true origin credential.
 
 | Network | Address |
 |---|---|
-| Ethereum Mainnet | TBD |
+| Ethereum Mainnet | `0xb45669A305EC118B21a4314880190a976F05A81A` |
 
 The contract is deployed via CREATE2 (Deterministic Deployment Proxy) for a consistent address across chains.
 
