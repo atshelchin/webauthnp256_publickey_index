@@ -208,6 +208,32 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         index.createRecord("rp1", "cred-1", PK1, string(longName), "cred-1", "");
     }
 
+    function test_revert_publicKeyBadPrefix() public {
+        bytes memory badPK = new bytes(65);
+        badPK[0] = 0x03; // should be 0x04
+        vm.expectRevert(abi.encodeWithSelector(
+            WebAuthnP256PublicKeyIndex.InvalidPublicKeyPrefix.selector, bytes1(0x03)
+        ));
+        index.createRecord("rp1", "cred-1", badPK, "bad", "cred-1", "");
+    }
+
+    function test_revert_initialCredentialIdTooLong() public {
+        bytes memory longInitCredId = new bytes(1025);
+        for (uint256 i = 0; i < 1025; i++) longInitCredId[i] = "a";
+        vm.expectRevert(abi.encodeWithSelector(
+            WebAuthnP256PublicKeyIndex.InitialCredentialIdTooLong.selector, 1025
+        ));
+        index.createRecord("rp1", "cred-1", PK1, "bad", string(longInitCredId), "");
+    }
+
+    function test_revert_metadataTooLong() public {
+        bytes memory longMeta = new bytes(1025);
+        vm.expectRevert(abi.encodeWithSelector(
+            WebAuthnP256PublicKeyIndex.MetadataTooLong.selector, 1025
+        ));
+        index.createRecord("rp1", "cred-1", PK1, "bad", "cred-1", longMeta);
+    }
+
     function test_maxLengthValues_succeed() public {
         bytes memory maxRpId = new bytes(253);
         for (uint256 i = 0; i < 253; i++) maxRpId[i] = "a";
@@ -216,7 +242,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory maxName = new bytes(256);
         for (uint256 i = 0; i < 256; i++) maxName[i] = "c";
 
-        index.createRecord(string(maxRpId), string(maxCredId), PK1, string(maxName), string(maxCredId), "");
+        index.createRecord(string(maxRpId), string(maxCredId), PK1, string(maxName), string(maxCredId), new bytes(1024));
         assertTrue(index.hasRecord(string(maxRpId), string(maxCredId)));
     }
 

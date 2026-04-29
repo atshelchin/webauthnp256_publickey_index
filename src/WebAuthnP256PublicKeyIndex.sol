@@ -12,6 +12,7 @@ contract WebAuthnP256PublicKeyIndex {
     uint256 public constant MAX_CREDENTIAL_ID_LENGTH = 1024;
     uint256 public constant MAX_NAME_LENGTH = 256;
     uint256 public constant UNCOMPRESSED_P256_KEY_LENGTH = 65; // 04 || x(32) || y(32)
+    uint256 public constant MAX_METADATA_LENGTH = 1024;
 
     struct PublicKeyRecord {
         string rpId;
@@ -36,6 +37,9 @@ contract WebAuthnP256PublicKeyIndex {
     error NameTooLong(uint256 length);
     error RecordAlreadyExists(string rpId, string credentialId);
     error RecordNotFound(string rpId, string credentialId);
+    error InvalidPublicKeyPrefix(bytes1 prefix);
+    error InitialCredentialIdTooLong(uint256 length);
+    error MetadataTooLong(uint256 length);
     error InitialRecordNotFound(string rpId, string initialCredentialId);
 
     function _recordKey(string calldata rpId, string calldata credentialId) internal pure returns (bytes32) {
@@ -59,7 +63,10 @@ contract WebAuthnP256PublicKeyIndex {
         if (bytes(credentialId).length == 0) revert EmptyCredentialId();
         if (bytes(credentialId).length > MAX_CREDENTIAL_ID_LENGTH) revert CredentialIdTooLong(bytes(credentialId).length);
         if (publicKey.length != UNCOMPRESSED_P256_KEY_LENGTH) revert InvalidPublicKeyLength(publicKey.length);
+        if (publicKey[0] != 0x04) revert InvalidPublicKeyPrefix(publicKey[0]);
         if (bytes(name).length > MAX_NAME_LENGTH) revert NameTooLong(bytes(name).length);
+        if (bytes(initialCredentialId).length > MAX_CREDENTIAL_ID_LENGTH) revert InitialCredentialIdTooLong(bytes(initialCredentialId).length);
+        if (metadata.length > MAX_METADATA_LENGTH) revert MetadataTooLong(metadata.length);
 
         bytes32 k = _recordKey(rpId, credentialId);
         if (_records[k].createdAt != 0) revert RecordAlreadyExists(rpId, credentialId);
