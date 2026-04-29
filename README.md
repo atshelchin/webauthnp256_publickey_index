@@ -11,7 +11,7 @@ Registration uses a commit-reveal pattern to prevent front-running:
 3. Wait 1 block (commit at block N, reveal at block N+1).
 4. Client calls `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)` — the contract verifies the commitment matches and stores the record.
 
-No signature verification is required — the contract is a pure storage index.
+No signature verification is required — the contract is a pure storage index. Callers should pass a normalized `rpId` (lowercase, punycode-encoded domain) to avoid duplicate entries for the same RP.
 
 ## Key rotation
 
