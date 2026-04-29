@@ -34,7 +34,7 @@ This allows tracing any key back to its original credential.
 | `publicKey` | `bytes` | Uncompressed P256 public key (65 bytes: `0x04 \|\| x \|\| y`) |
 | `name` | `string` | Human-readable label (max 256 bytes) |
 | `initialCredentialId` | `string` | The original credential this key traces back to |
-| `metadata` | `bytes` | Caller-defined data (e.g. EOA address, signer index, tags) |
+| `metadata` | `bytes` | Caller-defined data (e.g. EOA address, signer index, tags), max 1024 bytes |
 | `createdAt` | `uint256` | Block timestamp at creation |
 
 ## Build
