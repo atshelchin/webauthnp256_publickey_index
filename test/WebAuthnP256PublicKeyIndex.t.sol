@@ -267,7 +267,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
 
     function test_emitsRecordCreated() public {
         _commitFull("rp1", "cred-1", PK1, "Key 1", "cred-1", "");
-        bytes32 expectedKey = keccak256(abi.encodePacked("rp1", "\x00", "cred-1"));
+        bytes32 expectedKey = keccak256(abi.encode("rp1", "cred-1"));
         vm.expectEmit(true, false, false, true);
         emit WebAuthnP256PublicKeyIndex.RecordCreated(expectedKey, "rp1", "cred-1", PK1, "cred-1", "");
         index.createRecord("rp1", "cred-1", PK1, "Key 1", "cred-1", "");

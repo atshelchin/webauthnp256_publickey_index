@@ -47,7 +47,7 @@ contract WebAuthnP256PublicKeyIndex {
     error RevealTooEarly();
 
     function _recordKey(string calldata rpId, string calldata credentialId) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(rpId, "\x00", credentialId));
+        return keccak256(abi.encode(rpId, credentialId));
     }
 
     // ── Write ──
