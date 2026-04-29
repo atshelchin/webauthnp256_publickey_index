@@ -42,6 +42,14 @@ This ensures every key traces directly back to the true origin credential.
 | `metadata` | `bytes` | Caller-defined data (e.g. EOA address, signer index, tags), max 1024 bytes |
 | `createdAt` | `uint256` | Block timestamp at creation |
 
+## Deployment
+
+| Network | Address |
+|---|---|
+| Ethereum Mainnet | TBD |
+
+The contract is deployed via CREATE2 (Deterministic Deployment Proxy) for a consistent address across chains.
+
 ## Build
 
 ```shell
