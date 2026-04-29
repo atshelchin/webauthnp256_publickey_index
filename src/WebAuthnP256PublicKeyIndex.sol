@@ -13,6 +13,7 @@ contract WebAuthnP256PublicKeyIndex {
     uint256 public constant MAX_NAME_LENGTH = 256;
     uint256 public constant UNCOMPRESSED_P256_KEY_LENGTH = 65; // 04 || x(32) || y(32)
     uint256 public constant MAX_METADATA_LENGTH = 1024;
+    uint256 public constant REVEAL_DELAY = 1;
 
     struct PublicKeyRecord {
         string rpId;
@@ -26,6 +27,7 @@ contract WebAuthnP256PublicKeyIndex {
 
     mapping(bytes32 => PublicKeyRecord) private _records;
     mapping(string => uint256) private _rpCount;
+    mapping(bytes32 => uint256) private _commitBlock;
 
     event RecordCreated(bytes32 indexed key, string rpId, string credentialId, bytes publicKey, string initialCredentialId, bytes metadata);
 
@@ -41,6 +43,8 @@ contract WebAuthnP256PublicKeyIndex {
     error InitialCredentialIdTooLong(uint256 length);
     error MetadataTooLong(uint256 length);
     error InitialRecordNotFound(string rpId, string initialCredentialId);
+    error NotCommitted();
+    error RevealTooEarly();
 
     function _recordKey(string calldata rpId, string calldata credentialId) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(rpId, "\x00", credentialId));
@@ -48,7 +52,15 @@ contract WebAuthnP256PublicKeyIndex {
 
     // ── Write ──
 
-    /// @notice Store a new passkey public key record.
+    /// @notice Commit a future record registration. Must be called before createRecord.
+    /// @param commitment keccak256(abi.encodePacked(rpId, credentialId, publicKey, name, initialCredentialId, metadata))
+    function commit(bytes32 commitment) external {
+        if (_commitBlock[commitment] == 0) {
+            _commitBlock[commitment] = block.number;
+        }
+    }
+
+    /// @notice Store a new passkey public key record. Requires a prior commit.
     /// @param initialCredentialId Must equal credentialId (initial key) or reference an existing record (rotated key).
     function createRecord(
         string calldata rpId,
@@ -67,6 +79,12 @@ contract WebAuthnP256PublicKeyIndex {
         if (bytes(name).length > MAX_NAME_LENGTH) revert NameTooLong(bytes(name).length);
         if (bytes(initialCredentialId).length > MAX_CREDENTIAL_ID_LENGTH) revert InitialCredentialIdTooLong(bytes(initialCredentialId).length);
         if (metadata.length > MAX_METADATA_LENGTH) revert MetadataTooLong(metadata.length);
+
+        // Verify commit-reveal
+        bytes32 commitment = keccak256(abi.encodePacked(rpId, credentialId, publicKey, name, initialCredentialId, metadata));
+        if (_commitBlock[commitment] == 0) revert NotCommitted();
+        if (block.number <= _commitBlock[commitment] + REVEAL_DELAY) revert RevealTooEarly();
+        delete _commitBlock[commitment];
 
         bytes32 k = _recordKey(rpId, credentialId);
         if (_records[k].createdAt != 0) revert RecordAlreadyExists(rpId, credentialId);

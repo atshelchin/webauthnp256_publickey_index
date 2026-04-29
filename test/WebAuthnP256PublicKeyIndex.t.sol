@@ -16,7 +16,17 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
 
     // ── Helpers ──
 
+    function _commitFull(
+        string memory rpId, string memory credentialId, bytes memory pk,
+        string memory name, string memory initialCredentialId, bytes memory metadata
+    ) internal {
+        bytes32 commitment = keccak256(abi.encodePacked(rpId, credentialId, pk, name, initialCredentialId, metadata));
+        index.commit(commitment);
+        vm.roll(block.number + 2);
+    }
+
     function _createInitialRecord(string memory rpId, string memory credentialId, bytes memory pk, string memory name) internal {
+        _commitFull(rpId, credentialId, pk, name, credentialId, "");
         index.createRecord(rpId, credentialId, pk, name, credentialId, "");
     }
 
@@ -59,6 +69,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     function test_appendOnly_cannotOverwrite() public {
         _createInitialRecord("rp1", "cred-1", PK1, "Key 1");
 
+        _commitFull("rp1", "cred-1", PK2, "Key 2", "cred-1", "");
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.RecordAlreadyExists.selector, "rp1", "cred-1"
         ));
@@ -81,6 +92,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
 
     function test_initialKey_selfReference() public {
         // initialCredentialId == credentialId → initial key, always valid
+        _commitFull("rp1", "cred-1", PK1, "Initial", "cred-1", "");
         index.createRecord("rp1", "cred-1", PK1, "Initial", "cred-1", "");
         assertEq(index.getRecord("rp1", "cred-1").initialCredentialId, "cred-1");
     }
@@ -90,6 +102,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         _createInitialRecord("rp1", "cred-1", PK1, "Initial");
 
         // Rotated key references the initial
+        _commitFull("rp1", "cred-2", PK2, "Rotated", "cred-1", "");
         index.createRecord("rp1", "cred-2", PK2, "Rotated", "cred-1", "");
 
         WebAuthnP256PublicKeyIndex.PublicKeyRecord memory r = index.getRecord("rp1", "cred-2");
@@ -97,6 +110,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     }
 
     function test_revert_initialCredentialId_notFound() public {
+        _commitFull("rp1", "cred-2", PK1, "Bad", "nonexistent", "");
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.InitialRecordNotFound.selector, "rp1", "nonexistent"
         ));
@@ -107,6 +121,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         // cred-1 exists on rp1, but not on rp2
         _createInitialRecord("rp1", "cred-1", PK1, "Initial on rp1");
 
+        _commitFull("rp2", "cred-2", PK2, "Bad rotation", "cred-1", "");
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.InitialRecordNotFound.selector, "rp2", "cred-1"
         ));
@@ -117,6 +132,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
 
     function test_metadata_stored() public {
         bytes memory meta = abi.encode(address(0xdead), uint256(42));
+        _commitFull("rp1", "cred-1", PK1, "With meta", "cred-1", meta);
         index.createRecord("rp1", "cred-1", PK1, "With meta", "cred-1", meta);
         assertEq(index.getRecord("rp1", "cred-1").metadata, meta);
     }
@@ -242,6 +258,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory maxName = new bytes(256);
         for (uint256 i = 0; i < 256; i++) maxName[i] = "c";
 
+        _commitFull(string(maxRpId), string(maxCredId), PK1, string(maxName), string(maxCredId), new bytes(1024));
         index.createRecord(string(maxRpId), string(maxCredId), PK1, string(maxName), string(maxCredId), new bytes(1024));
         assertTrue(index.hasRecord(string(maxRpId), string(maxCredId)));
     }
@@ -249,10 +266,11 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     // ── Event ──
 
     function test_emitsRecordCreated() public {
+        _commitFull("rp1", "cred-1", PK1, "Key 1", "cred-1", "");
         bytes32 expectedKey = keccak256(abi.encodePacked("rp1", "\x00", "cred-1"));
         vm.expectEmit(true, false, false, true);
         emit WebAuthnP256PublicKeyIndex.RecordCreated(expectedKey, "rp1", "cred-1", PK1, "cred-1", "");
-        _createInitialRecord("rp1", "cred-1", PK1, "Key 1");
+        index.createRecord("rp1", "cred-1", PK1, "Key 1", "cred-1", "");
     }
 
     // ── Multiple callers ──
@@ -261,14 +279,49 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         address alice = makeAddr("alice");
         address bob = makeAddr("bob");
 
+        // Both commit
+        bytes32 cAlice = keccak256(abi.encodePacked("rp1", "cred-a", PK1, "Alice Key", "cred-a", bytes("")));
+        bytes32 cBob = keccak256(abi.encodePacked("rp1", "cred-b", PK2, "Bob Key", "cred-b", bytes("")));
         vm.prank(alice);
-        _createInitialRecord("rp1", "cred-a", PK1, "Alice Key");
-
+        index.commit(cAlice);
         vm.prank(bob);
-        _createInitialRecord("rp1", "cred-b", PK2, "Bob Key");
+        index.commit(cBob);
+
+        vm.roll(block.number + 2);
+
+        vm.prank(alice);
+        index.createRecord("rp1", "cred-a", PK1, "Alice Key", "cred-a", "");
+        vm.prank(bob);
+        index.createRecord("rp1", "cred-b", PK2, "Bob Key", "cred-b", "");
 
         assertEq(index.getRecord("rp1", "cred-a").publicKey, PK1);
         assertEq(index.getRecord("rp1", "cred-b").publicKey, PK2);
         assertEq(index.getRpCount("rp1"), 2);
+    }
+
+    // ── Commit-Reveal ──
+
+    function test_revert_notCommitted() public {
+        vm.expectRevert(WebAuthnP256PublicKeyIndex.NotCommitted.selector);
+        index.createRecord("rp1", "cred-1", PK1, "No commit", "cred-1", "");
+    }
+
+    function test_revert_revealTooEarly() public {
+        bytes32 commitment = keccak256(abi.encodePacked("rp1", "cred-1", PK1, "Early", "cred-1", bytes("")));
+        index.commit(commitment);
+        // Don't roll forward — still same block
+        vm.expectRevert(WebAuthnP256PublicKeyIndex.RevealTooEarly.selector);
+        index.createRecord("rp1", "cred-1", PK1, "Early", "cred-1", "");
+    }
+
+    function test_commitOnlyStoredOnce() public {
+        bytes32 commitment = keccak256(abi.encodePacked("rp1", "cred-1", PK1, "Test", "cred-1", bytes("")));
+        index.commit(commitment);
+        vm.roll(block.number + 5);
+        index.commit(commitment); // should not overwrite
+        vm.roll(block.number + 2);
+        // reveal should succeed (delay measured from first commit)
+        index.createRecord("rp1", "cred-1", PK1, "Test", "cred-1", "");
+        assertTrue(index.hasRecord("rp1", "cred-1"));
     }
 }
