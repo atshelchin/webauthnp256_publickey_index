@@ -43,6 +43,7 @@ contract WebAuthnP256PublicKeyIndex {
     error InitialCredentialIdTooLong(uint256 length);
     error MetadataTooLong(uint256 length);
     error InitialRecordNotFound(string rpId, string initialCredentialId);
+    error InitialRecordNotRoot(string rpId, string initialCredentialId);
     error NotCommitted();
     error RevealTooEarly();
 
@@ -89,10 +90,12 @@ contract WebAuthnP256PublicKeyIndex {
         bytes32 k = _recordKey(rpId, credentialId);
         if (_records[k].createdAt != 0) revert RecordAlreadyExists(rpId, credentialId);
 
-        // initialCredentialId must equal credentialId (initial key) or reference an existing record
+        // initialCredentialId must equal credentialId (initial key) or reference an existing root record
         if (keccak256(bytes(initialCredentialId)) != keccak256(bytes(credentialId))) {
             bytes32 initKey = _recordKey(rpId, initialCredentialId);
             if (_records[initKey].createdAt == 0) revert InitialRecordNotFound(rpId, initialCredentialId);
+            if (keccak256(bytes(_records[initKey].initialCredentialId)) != keccak256(bytes(initialCredentialId)))
+                revert InitialRecordNotRoot(rpId, initialCredentialId);
         }
 
         _records[k] = PublicKeyRecord({

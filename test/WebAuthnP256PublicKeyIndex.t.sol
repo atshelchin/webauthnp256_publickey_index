@@ -128,6 +128,20 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         index.createRecord("rp2", "cred-2", PK2, "Bad rotation", "cred-1", "");
     }
 
+    function test_revert_initialCredentialId_notRoot() public {
+        // cred-1 is initial, cred-2 is rotated from cred-1
+        _createInitialRecord("rp1", "cred-1", PK1, "Initial");
+        _commitFull("rp1", "cred-2", PK2, "Rotated", "cred-1", "");
+        index.createRecord("rp1", "cred-2", PK2, "Rotated", "cred-1", "");
+
+        // cred-3 tries to reference cred-2 (not a root) → should fail
+        _commitFull("rp1", "cred-3", PK1, "Bad", "cred-2", "");
+        vm.expectRevert(abi.encodeWithSelector(
+            WebAuthnP256PublicKeyIndex.InitialRecordNotRoot.selector, "rp1", "cred-2"
+        ));
+        index.createRecord("rp1", "cred-3", PK1, "Bad", "cred-2", "");
+    }
+
     // ── metadata ──
 
     function test_metadata_stored() public {
