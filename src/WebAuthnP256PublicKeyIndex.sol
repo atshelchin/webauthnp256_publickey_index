@@ -29,7 +29,7 @@ contract WebAuthnP256PublicKeyIndex {
     mapping(string => uint256) private _rpCount;
     mapping(bytes32 => uint256) private _commitBlock;
 
-    event RecordCreated(bytes32 indexed key, string rpId, string credentialId, bytes publicKey, string initialCredentialId, bytes metadata);
+    event RecordCreated(bytes32 indexed key, string rpId, string credentialId, bytes publicKey, string name, string initialCredentialId, bytes metadata);
 
     error EmptyRpId();
     error EmptyCredentialId();
@@ -109,7 +109,7 @@ contract WebAuthnP256PublicKeyIndex {
         });
         _rpCount[rpId]++;
 
-        emit RecordCreated(k, rpId, credentialId, publicKey, initialCredentialId, metadata);
+        emit RecordCreated(k, rpId, credentialId, publicKey, name, initialCredentialId, metadata);
     }
 
     // ── Read ──
