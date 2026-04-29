@@ -53,7 +53,7 @@ contract WebAuthnP256PublicKeyIndex {
     // ── Write ──
 
     /// @notice Commit a future record registration. Must be called before createRecord.
-    /// @param commitment keccak256(abi.encodePacked(rpId, credentialId, publicKey, name, initialCredentialId, metadata))
+    /// @param commitment keccak256(abi.encode(rpId, credentialId, publicKey, name, initialCredentialId, metadata))
     function commit(bytes32 commitment) external {
         if (_commitBlock[commitment] == 0) {
             _commitBlock[commitment] = block.number;
@@ -81,7 +81,7 @@ contract WebAuthnP256PublicKeyIndex {
         if (metadata.length > MAX_METADATA_LENGTH) revert MetadataTooLong(metadata.length);
 
         // Verify commit-reveal
-        bytes32 commitment = keccak256(abi.encodePacked(rpId, credentialId, publicKey, name, initialCredentialId, metadata));
+        bytes32 commitment = keccak256(abi.encode(rpId, credentialId, publicKey, name, initialCredentialId, metadata));
         if (_commitBlock[commitment] == 0) revert NotCommitted();
         if (block.number <= _commitBlock[commitment] + REVEAL_DELAY) revert RevealTooEarly();
         delete _commitBlock[commitment];

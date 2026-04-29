@@ -20,7 +20,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         string memory rpId, string memory credentialId, bytes memory pk,
         string memory name, string memory initialCredentialId, bytes memory metadata
     ) internal {
-        bytes32 commitment = keccak256(abi.encodePacked(rpId, credentialId, pk, name, initialCredentialId, metadata));
+        bytes32 commitment = keccak256(abi.encode(rpId, credentialId, pk, name, initialCredentialId, metadata));
         index.commit(commitment);
         vm.roll(block.number + 2);
     }
@@ -280,8 +280,8 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         address bob = makeAddr("bob");
 
         // Both commit
-        bytes32 cAlice = keccak256(abi.encodePacked("rp1", "cred-a", PK1, "Alice Key", "cred-a", bytes("")));
-        bytes32 cBob = keccak256(abi.encodePacked("rp1", "cred-b", PK2, "Bob Key", "cred-b", bytes("")));
+        bytes32 cAlice = keccak256(abi.encode("rp1", "cred-a", PK1, "Alice Key", "cred-a", bytes("")));
+        bytes32 cBob = keccak256(abi.encode("rp1", "cred-b", PK2, "Bob Key", "cred-b", bytes("")));
         vm.prank(alice);
         index.commit(cAlice);
         vm.prank(bob);
@@ -307,7 +307,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     }
 
     function test_revert_revealTooEarly() public {
-        bytes32 commitment = keccak256(abi.encodePacked("rp1", "cred-1", PK1, "Early", "cred-1", bytes("")));
+        bytes32 commitment = keccak256(abi.encode("rp1", "cred-1", PK1, "Early", "cred-1", bytes("")));
         index.commit(commitment);
         // Don't roll forward — still same block
         vm.expectRevert(WebAuthnP256PublicKeyIndex.RevealTooEarly.selector);
@@ -315,7 +315,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     }
 
     function test_commitOnlyStoredOnce() public {
-        bytes32 commitment = keccak256(abi.encodePacked("rp1", "cred-1", PK1, "Test", "cred-1", bytes("")));
+        bytes32 commitment = keccak256(abi.encode("rp1", "cred-1", PK1, "Test", "cred-1", bytes("")));
         index.commit(commitment);
         vm.roll(block.number + 5);
         index.commit(commitment); // should not overwrite
