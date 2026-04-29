@@ -7,6 +7,5 @@ contract GetAddressTest is Test {
         WebAuthnP256PublicKeyIndex idx = new WebAuthnP256PublicKeyIndex();
         console.log("contract address:", address(idx));
         console.log("chain id:", block.chainid);
-        console.log("challenge:", vm.toString(idx.getChallenge("rp1", "cred-1")));
     }
 }

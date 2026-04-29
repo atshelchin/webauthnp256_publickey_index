@@ -4,21 +4,38 @@ On-chain registry for WebAuthn P256 (secp256r1) passkey public keys. Single sour
 
 ## How it works
 
-1. Client calls `getChallenge(rpId, credentialId)` to get a deterministic challenge bound to `address(this)`, `chainId`, `rpId`, and `credentialId`.
-2. Client signs the challenge with `navigator.credentials.get()` using the passkey.
-3. Client calls `createRecord(...)` with the authenticator response. The contract verifies the WebAuthn P256 signature on-chain via the `P256VERIFY` precompile (RIP-7212, available on Ethereum mainnet since Pectra).
-4. The public key record is stored permanently under `keccak256(rpId, "\x00", credentialId)`.
+1. Client calls `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)`.
+2. The contract validates inputs and stores the public key record permanently under `keccak256(rpId, "\x00", credentialId)`.
+
+No signature verification is required — the contract is a pure storage index. Credential IDs are random (128-bit+) and unpredictable, making front-running impractical.
+
+## Key rotation
+
+- **Initial key**: set `initialCredentialId = credentialId` (self-reference).
+- **Rotated key**: set `initialCredentialId` to an existing credential under the same `rpId`. The contract verifies the referenced record exists.
+
+This allows tracing any key back to its original credential.
 
 ## Contract interface
 
 | Function | Description |
 |---|---|
-| `createRecord(rpId, credentialId, publicKey, name, authenticatorData, clientDataJSON, r, s)` | Register a new passkey with signature proof |
-| `getChallenge(rpId, credentialId)` | Get the challenge to pass to `navigator.credentials.get()` |
+| `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)` | Register a new passkey public key |
 | `getRecord(rpId, credentialId)` | Query a single record |
-| `getRecordsBatch(rpIds[], credentialIds[])` | Batch query multiple records |
 | `hasRecord(rpId, credentialId)` | Check if a record exists |
 | `getRpCount(rpId)` | Count of credentials under an rpId |
+
+## PublicKeyRecord struct
+
+| Field | Type | Description |
+|---|---|---|
+| `rpId` | `string` | Relying Party ID (domain) |
+| `credentialId` | `string` | WebAuthn credential identifier |
+| `publicKey` | `bytes` | Uncompressed P256 public key (65 bytes: `0x04 \|\| x \|\| y`) |
+| `name` | `string` | Human-readable label (max 256 bytes) |
+| `initialCredentialId` | `string` | The original credential this key traces back to |
+| `metadata` | `bytes` | Caller-defined data (e.g. EOA address, signer index, tags) |
+| `createdAt` | `uint256` | Block timestamp at creation |
 
 ## Build
 
