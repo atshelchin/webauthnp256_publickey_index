@@ -6,7 +6,7 @@ On-chain registry for WebAuthn P256 (secp256r1) passkey public keys. Single sour
 
 Registration uses a commit-reveal pattern to prevent front-running:
 
-1. Client computes `commitment = keccak256(abi.encodePacked(rpId, credentialId, publicKey, name, initialCredentialId, metadata))`.
+1. Client computes `commitment = keccak256(abi.encode(rpId, credentialId, publicKey, name, initialCredentialId, metadata))`.
 2. Client calls `commit(commitment)` — only the hash is visible on-chain, parameters stay hidden.
 3. Wait at least 1 block (`REVEAL_DELAY`).
 4. Client calls `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)` — the contract verifies the commitment matches and stores the record.
