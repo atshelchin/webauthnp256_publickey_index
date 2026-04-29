@@ -60,7 +60,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     function _createRecord(string memory rpId, string memory credentialId, bytes memory pk, string memory name) internal {
         bytes memory authData = _buildAuthenticatorData(rpId);
         bytes memory clientJSON = _buildClientDataJSON(rpId, credentialId);
-        index.createRecord(rpId, credentialId, pk, name, 0, authData, clientJSON, 1, 2);
+        index.createRecord(rpId, credentialId, pk, name, "", "", authData, clientJSON, 1, 2);
     }
 
     // ── Version ──
@@ -107,7 +107,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.RecordAlreadyExists.selector, "rp1", "cred-1"
         ));
-        index.createRecord("rp1", "cred-1", PK2, "Key 2", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK2, "Key 2", "", "", authData, clientJSON, 1, 2);
 
         assertEq(index.getRecord("rp1", "cred-1").publicKey, PK1);
     }
@@ -206,14 +206,14 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory authData = _buildAuthenticatorData("");
         bytes memory clientJSON = _buildClientDataJSON("", "cred-1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.EmptyRpId.selector);
-        index.createRecord("", "cred-1", PK1, "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("", "cred-1", PK1, "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     function test_revert_emptyCredentialId() public {
         bytes memory authData = _buildAuthenticatorData("rp1");
         bytes memory clientJSON = _buildClientDataJSON("rp1", "");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.EmptyCredentialId.selector);
-        index.createRecord("rp1", "", PK1, "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "", PK1, "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     function test_revert_publicKeyTooShort() public {
@@ -222,7 +222,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.InvalidPublicKeyLength.selector, 32
         ));
-        index.createRecord("rp1", "cred-1", new bytes(32), "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", new bytes(32), "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     function test_revert_publicKeyTooLong() public {
@@ -231,7 +231,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.InvalidPublicKeyLength.selector, 66
         ));
-        index.createRecord("rp1", "cred-1", new bytes(66), "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", new bytes(66), "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     function test_revert_publicKeyEmpty() public {
@@ -240,7 +240,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.InvalidPublicKeyLength.selector, 0
         ));
-        index.createRecord("rp1", "cred-1", "", "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", "", "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     function test_revert_rpIdTooLong() public {
@@ -251,7 +251,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.RpIdTooLong.selector, 254
         ));
-        index.createRecord(string(longRpId), "cred-1", PK1, "bad", 0, authData, "", 1, 2);
+        index.createRecord(string(longRpId), "cred-1", PK1, "bad", "", "", authData, "", 1, 2);
     }
 
     function test_revert_credentialIdTooLong() public {
@@ -261,7 +261,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.CredentialIdTooLong.selector, 1025
         ));
-        index.createRecord("rp1", string(longCredId), PK1, "bad", 0, authData, "", 1, 2);
+        index.createRecord("rp1", string(longCredId), PK1, "bad", "", "", authData, "", 1, 2);
     }
 
     function test_revert_nameTooLong() public {
@@ -272,7 +272,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         vm.expectRevert(abi.encodeWithSelector(
             WebAuthnP256PublicKeyIndex.NameTooLong.selector, 257
         ));
-        index.createRecord("rp1", "cred-1", PK1, string(longName), 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, string(longName), "", "", authData, clientJSON, 1, 2);
     }
 
     function test_maxLengthValues_succeed() public {
@@ -286,7 +286,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory authData = _buildAuthenticatorData(string(maxRpId));
         bytes memory clientJSON = _buildClientDataJSON(string(maxRpId), string(maxCredId));
 
-        index.createRecord(string(maxRpId), string(maxCredId), PK1, string(maxName), 0, authData, clientJSON, 1, 2);
+        index.createRecord(string(maxRpId), string(maxCredId), PK1, string(maxName), "", "", authData, clientJSON, 1, 2);
         assertTrue(index.hasRecord(string(maxRpId), string(maxCredId)));
     }
 
@@ -295,7 +295,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     function test_revert_authenticatorDataTooShort() public {
         bytes memory clientJSON = _buildClientDataJSON("rp1", "cred-1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidAuthenticatorData.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, new bytes(36), clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", new bytes(36), clientJSON, 1, 2);
     }
 
     function test_revert_authenticatorData_wrongRpIdHash() public {
@@ -303,7 +303,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory wrongAuthData = _buildAuthenticatorData("wrong-rp");
         bytes memory clientJSON = _buildClientDataJSON("rp1", "cred-1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidAuthenticatorData.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, wrongAuthData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", wrongAuthData, clientJSON, 1, 2);
     }
 
     function test_revert_authenticatorData_noUserPresent() public {
@@ -312,7 +312,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory authData = abi.encodePacked(rpIdHash, uint8(0x00), uint32(1)); // flags=0, no UP
         bytes memory clientJSON = _buildClientDataJSON("rp1", "cred-1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidAuthenticatorData.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     function test_revert_clientDataJSON_wrongType() public {
@@ -324,7 +324,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         );
         bytes memory authData = _buildAuthenticatorData("rp1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidClientDataJSON.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, authData, badJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", authData, badJSON, 1, 2);
     }
 
     function test_revert_clientDataJSON_wrongChallenge() public {
@@ -335,14 +335,14 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         );
         bytes memory authData = _buildAuthenticatorData("rp1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidClientDataJSON.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, authData, badJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", authData, badJSON, 1, 2);
     }
 
     function test_revert_clientDataJSON_noChallenge() public {
         bytes memory badJSON = bytes('{"type":"webauthn.get","origin":"https://example.com"}');
         bytes memory authData = _buildAuthenticatorData("rp1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidClientDataJSON.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, authData, badJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", authData, badJSON, 1, 2);
     }
 
     function test_revert_invalidP256Signature() public {
@@ -352,7 +352,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory authData = _buildAuthenticatorData("rp1");
         bytes memory clientJSON = _buildClientDataJSON("rp1", "cred-1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidSignature.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     function test_revert_p256PrecompileReverts() public {
@@ -362,7 +362,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes memory authData = _buildAuthenticatorData("rp1");
         bytes memory clientJSON = _buildClientDataJSON("rp1", "cred-1");
         vm.expectRevert(WebAuthnP256PublicKeyIndex.InvalidSignature.selector);
-        index.createRecord("rp1", "cred-1", PK1, "bad", 0, authData, clientJSON, 1, 2);
+        index.createRecord("rp1", "cred-1", PK1, "bad", "", "", authData, clientJSON, 1, 2);
     }
 
     // ── Real P256 Signature (end-to-end, no mock) ──
@@ -397,7 +397,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         );
 
         // This should pass with real P256 verification (Prague EVM)
-        index.createRecord("rp1", "cred-1", realPK, "Real Sig Test", 0, authData, clientJSON, sigR, sigS);
+        index.createRecord("rp1", "cred-1", realPK, "Real Sig Test", "", "", authData, clientJSON, sigR, sigS);
 
         WebAuthnP256PublicKeyIndex.PublicKeyRecord memory r = index.getRecord("rp1", "cred-1");
         assertEq(r.publicKey, realPK);
@@ -409,7 +409,7 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
     function test_emitsRecordCreated() public {
         bytes32 expectedKey = keccak256(abi.encodePacked("rp1", "\x00", "cred-1"));
         vm.expectEmit(true, false, false, true);
-        emit WebAuthnP256PublicKeyIndex.RecordCreated(expectedKey, "rp1", "cred-1", PK1, 0);
+        emit WebAuthnP256PublicKeyIndex.RecordCreated(expectedKey, "rp1", "cred-1", PK1, "", "");
         _createRecord("rp1", "cred-1", PK1, "Key 1");
     }
 

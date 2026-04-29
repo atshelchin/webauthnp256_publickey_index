@@ -22,7 +22,8 @@ contract WebAuthnP256PublicKeyIndex {
         string credentialId;
         bytes publicKey;
         string name;
-        uint8 tag;
+        string initialCredentialId;
+        bytes metadata;
         uint256 createdAt;
     }
 
@@ -30,7 +31,7 @@ contract WebAuthnP256PublicKeyIndex {
     mapping(bytes32 => bool) private _exists;
     mapping(string => uint256) private _rpCount;
 
-    event RecordCreated(bytes32 indexed key, string rpId, string credentialId, bytes publicKey, uint8 tag);
+    event RecordCreated(bytes32 indexed key, string rpId, string credentialId, bytes publicKey, string initialCredentialId, bytes metadata);
 
     error EmptyRpId();
     error EmptyCredentialId();
@@ -61,7 +62,8 @@ contract WebAuthnP256PublicKeyIndex {
         string calldata credentialId,
         bytes calldata publicKey,
         string calldata name,
-        uint8 tag,
+        string calldata initialCredentialId,
+        bytes calldata metadata,
         bytes calldata authenticatorData,
         bytes calldata clientDataJSON,
         uint256 r,
@@ -84,13 +86,14 @@ contract WebAuthnP256PublicKeyIndex {
             credentialId: credentialId,
             publicKey: publicKey,
             name: name,
-            tag: tag,
+            initialCredentialId: initialCredentialId,
+            metadata: metadata,
             createdAt: block.timestamp
         });
         _exists[k] = true;
         _rpCount[rpId]++;
 
-        emit RecordCreated(k, rpId, credentialId, publicKey, tag);
+        emit RecordCreated(k, rpId, credentialId, publicKey, initialCredentialId, metadata);
     }
 
     // ── Read ──
