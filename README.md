@@ -4,10 +4,14 @@ On-chain registry for WebAuthn P256 (secp256r1) passkey public keys. Single sour
 
 ## How it works
 
-1. Client calls `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)`.
-2. The contract validates inputs and stores the public key record permanently under `keccak256(rpId, "\x00", credentialId)`.
+Registration uses a commit-reveal pattern to prevent front-running:
 
-No signature verification is required — the contract is a pure storage index. Credential IDs are random (128-bit+) and unpredictable, making front-running impractical.
+1. Client computes `commitment = keccak256(abi.encodePacked(rpId, credentialId, publicKey, name, initialCredentialId, metadata))`.
+2. Client calls `commit(commitment)` — only the hash is visible on-chain, parameters stay hidden.
+3. Wait at least 1 block (`REVEAL_DELAY`).
+4. Client calls `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)` — the contract verifies the commitment matches and stores the record.
+
+No signature verification is required — the contract is a pure storage index.
 
 ## Key rotation
 
@@ -20,7 +24,8 @@ This allows tracing any key back to its original credential.
 
 | Function | Description |
 |---|---|
-| `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)` | Register a new passkey public key |
+| `commit(commitment)` | Submit a commitment hash before registration |
+| `createRecord(rpId, credentialId, publicKey, name, initialCredentialId, metadata)` | Register a new passkey public key (requires prior commit) |
 | `getRecord(rpId, credentialId)` | Query a single record |
 | `hasRecord(rpId, credentialId)` | Check if a record exists |
 | `getRpCount(rpId)` | Count of credentials under an rpId |
