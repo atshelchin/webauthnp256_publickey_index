@@ -16,9 +16,9 @@ No signature verification is required — the contract is a pure storage index. 
 ## Key rotation
 
 - **Initial key**: set `initialCredentialId = credentialId` (self-reference).
-- **Rotated key**: set `initialCredentialId` to an existing credential under the same `rpId`. The contract verifies the referenced record exists.
+- **Rotated key**: set `initialCredentialId` to an existing **root** credential under the same `rpId`. The contract verifies the referenced record exists and is itself an initial key (not another rotated key).
 
-This allows tracing any key back to its original credential.
+This ensures every key traces directly back to the true origin credential.
 
 ## Contract interface
 
