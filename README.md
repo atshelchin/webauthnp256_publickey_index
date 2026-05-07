@@ -71,7 +71,7 @@ Pagination: `offset` = items to skip, `limit` = max items. `desc = true` for new
 
 | Network | Address |
 |---|---|
-| Ethereum Mainnet | `0x77b60576D3e2A2841e96a13a0BE95d070f2793aB` |
+| Gnosis | `0xc1f7Ef155a0ee1B48edbbB5195608e336ae6542b` |
 
 Deployed via CREATE2 ([Deterministic Deployment Proxy](https://github.com/Arachnid/deterministic-deployment-proxy)) for consistent address across chains.
 
