@@ -338,4 +338,133 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         index.createRecord("rp1", "cred-1", PK1, "Test", "cred-1", "");
         assertTrue(index.hasRecord("rp1", "cred-1"));
     }
+
+    // ── Enumeration: getTotalRpIds / getRpIds ──
+
+    function test_getTotalRpIds() public {
+        assertEq(index.getTotalRpIds(), 0);
+        _createInitialRecord("rp1", "cred-1", PK1, "K1");
+        assertEq(index.getTotalRpIds(), 1);
+        _createInitialRecord("rp1", "cred-2", PK2, "K2");
+        assertEq(index.getTotalRpIds(), 1); // same rpId, no increase
+        _createInitialRecord("rp2", "cred-3", PK1, "K3");
+        assertEq(index.getTotalRpIds(), 2);
+    }
+
+    function test_getRpIds_asc() public {
+        vm.warp(1000);
+        _createInitialRecord("rp1", "cred-1", PK1, "K1");
+        vm.warp(2000);
+        _createInitialRecord("rp2", "cred-2", PK2, "K2");
+
+        (uint256 total, string[] memory rpIds, uint256[] memory counts, uint256[] memory createdAts)
+            = index.getRpIds(0, 10, false);
+        assertEq(total, 2);
+        assertEq(rpIds.length, 2);
+        assertEq(rpIds[0], "rp1");
+        assertEq(rpIds[1], "rp2");
+        assertEq(counts[0], 1);
+        assertEq(counts[1], 1);
+        assertEq(createdAts[0], 1000);
+        assertEq(createdAts[1], 2000);
+    }
+
+    function test_getRpIds_desc() public {
+        vm.warp(1000);
+        _createInitialRecord("rp1", "cred-1", PK1, "K1");
+        vm.warp(2000);
+        _createInitialRecord("rp2", "cred-2", PK2, "K2");
+
+        (uint256 total, string[] memory rpIds,,)
+            = index.getRpIds(0, 10, true);
+        assertEq(total, 2);
+        assertEq(rpIds[0], "rp2"); // newest first
+        assertEq(rpIds[1], "rp1");
+    }
+
+    function test_getRpIds_pagination() public {
+        _createInitialRecord("rp1", "cred-1", PK1, "K1");
+        _createInitialRecord("rp2", "cred-2", PK2, "K2");
+        _createInitialRecord("rp3", "cred-3", PK1, "K3");
+
+        // page 1: offset=0, limit=2
+        (uint256 total, string[] memory page1,,) = index.getRpIds(0, 2, false);
+        assertEq(total, 3);
+        assertEq(page1.length, 2);
+        assertEq(page1[0], "rp1");
+        assertEq(page1[1], "rp2");
+
+        // page 2: offset=2, limit=2
+        (, string[] memory page2,,) = index.getRpIds(2, 2, false);
+        assertEq(page2.length, 1);
+        assertEq(page2[0], "rp3");
+    }
+
+    function test_getRpIds_offsetBeyondTotal() public {
+        _createInitialRecord("rp1", "cred-1", PK1, "K1");
+        (uint256 total, string[] memory rpIds,,) = index.getRpIds(100, 10, false);
+        assertEq(total, 1);
+        assertEq(rpIds.length, 0);
+    }
+
+    // ── Enumeration: getKeysByRpId ──
+
+    function test_getKeysByRpId_asc() public {
+        vm.warp(1000);
+        _createInitialRecord("rp1", "cred-a", PK1, "A");
+        vm.warp(2000);
+        _commitFull("rp1", "cred-b", PK2, "B", "cred-a", "");
+        index.createRecord("rp1", "cred-b", PK2, "B", "cred-a", "");
+
+        (uint256 total, WebAuthnP256PublicKeyIndex.PublicKeyRecord[] memory records)
+            = index.getKeysByRpId("rp1", 0, 10, false);
+        assertEq(total, 2);
+        assertEq(records[0].credentialId, "cred-a");
+        assertEq(records[1].credentialId, "cred-b");
+        assertEq(records[0].createdAt, 1000);
+        assertEq(records[1].createdAt, 2000);
+    }
+
+    function test_getKeysByRpId_desc() public {
+        _createInitialRecord("rp1", "cred-a", PK1, "A");
+        _createInitialRecord("rp1", "cred-b", PK2, "B");
+
+        (, WebAuthnP256PublicKeyIndex.PublicKeyRecord[] memory records)
+            = index.getKeysByRpId("rp1", 0, 10, true);
+        assertEq(records[0].credentialId, "cred-b"); // newest first
+        assertEq(records[1].credentialId, "cred-a");
+    }
+
+    function test_getKeysByRpId_pagination() public {
+        _createInitialRecord("rp1", "cred-1", PK1, "K1");
+        _createInitialRecord("rp1", "cred-2", PK2, "K2");
+
+        // page 1
+        (uint256 total, WebAuthnP256PublicKeyIndex.PublicKeyRecord[] memory page1)
+            = index.getKeysByRpId("rp1", 0, 1, false);
+        assertEq(total, 2);
+        assertEq(page1.length, 1);
+        assertEq(page1[0].credentialId, "cred-1");
+
+        // page 2
+        (, WebAuthnP256PublicKeyIndex.PublicKeyRecord[] memory page2)
+            = index.getKeysByRpId("rp1", 1, 1, false);
+        assertEq(page2.length, 1);
+        assertEq(page2[0].credentialId, "cred-2");
+    }
+
+    function test_getKeysByRpId_emptyRpId() public {
+        (uint256 total, WebAuthnP256PublicKeyIndex.PublicKeyRecord[] memory records)
+            = index.getKeysByRpId("nonexistent", 0, 10, false);
+        assertEq(total, 0);
+        assertEq(records.length, 0);
+    }
+
+    function test_getKeysByRpId_offsetBeyondTotal() public {
+        _createInitialRecord("rp1", "cred-1", PK1, "K1");
+        (uint256 total, WebAuthnP256PublicKeyIndex.PublicKeyRecord[] memory records)
+            = index.getKeysByRpId("rp1", 100, 10, false);
+        assertEq(total, 1);
+        assertEq(records.length, 0);
+    }
 }

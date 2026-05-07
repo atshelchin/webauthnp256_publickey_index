@@ -29,6 +29,12 @@ contract WebAuthnP256PublicKeyIndex {
     mapping(string => uint256) private _rpCount;
     mapping(bytes32 => uint256) private _commitBlock;
 
+    // Enumeration support
+    string[] private _rpIds;
+    mapping(string => bool) private _rpIdExists;
+    mapping(string => uint256) private _rpCreatedAt;
+    mapping(string => string[]) private _rpCredentials;
+
     event RecordCreated(bytes32 indexed key, string rpId, string credentialId, bytes publicKey, string name, string initialCredentialId, bytes metadata);
 
     error EmptyRpId();
@@ -109,6 +115,13 @@ contract WebAuthnP256PublicKeyIndex {
         });
         _rpCount[rpId]++;
 
+        if (!_rpIdExists[rpId]) {
+            _rpIds.push(rpId);
+            _rpIdExists[rpId] = true;
+            _rpCreatedAt[rpId] = block.timestamp;
+        }
+        _rpCredentials[rpId].push(credentialId);
+
         emit RecordCreated(k, rpId, credentialId, publicKey, name, initialCredentialId, metadata);
     }
 
@@ -137,5 +150,67 @@ contract WebAuthnP256PublicKeyIndex {
     /// @notice Get the number of credentials registered under an rpId.
     function getRpCount(string calldata rpId) external view returns (uint256) {
         return _rpCount[rpId];
+    }
+
+    /// @notice Total number of distinct rpIds.
+    function getTotalRpIds() external view returns (uint256) {
+        return _rpIds.length;
+    }
+
+    /// @notice Paginated list of all rpIds with counts and creation times.
+    /// @param offset Number of items to skip.
+    /// @param limit  Max items to return.
+    /// @param desc   true = newest first, false = oldest first.
+    function getRpIds(uint256 offset, uint256 limit, bool desc)
+        external
+        view
+        returns (
+            uint256 total,
+            string[] memory rpIds,
+            uint256[] memory counts,
+            uint256[] memory createdAts
+        )
+    {
+        total = _rpIds.length;
+        if (offset >= total) {
+            return (total, new string[](0), new uint256[](0), new uint256[](0));
+        }
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        rpIds = new string[](count);
+        counts = new uint256[](count);
+        createdAts = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            uint256 idx = desc ? total - 1 - offset - i : offset + i;
+            string memory rp = _rpIds[idx];
+            rpIds[i] = rp;
+            counts[i] = _rpCount[rp];
+            createdAts[i] = _rpCreatedAt[rp];
+        }
+    }
+
+    /// @notice Paginated list of all keys under an rpId.
+    /// @param rpId   The site domain.
+    /// @param offset Number of items to skip.
+    /// @param limit  Max items to return.
+    /// @param desc   true = newest first, false = oldest first.
+    function getKeysByRpId(string calldata rpId, uint256 offset, uint256 limit, bool desc)
+        external
+        view
+        returns (uint256 total, PublicKeyRecord[] memory records)
+    {
+        string[] storage creds = _rpCredentials[rpId];
+        total = creds.length;
+        if (offset >= total) {
+            return (total, new PublicKeyRecord[](0));
+        }
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        records = new PublicKeyRecord[](count);
+        for (uint256 i = 0; i < count; i++) {
+            uint256 idx = desc ? total - 1 - offset - i : offset + i;
+            bytes32 k = keccak256(abi.encode(rpId, creds[idx]));
+            records[i] = _records[k];
+        }
     }
 }
