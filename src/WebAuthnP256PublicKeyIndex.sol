@@ -26,12 +26,10 @@ contract WebAuthnP256PublicKeyIndex {
     }
 
     mapping(bytes32 => PublicKeyRecord) private _records;
-    mapping(string => uint256) private _rpCount;
     mapping(bytes32 => uint256) private _commitBlock;
 
     // Enumeration support
     string[] private _rpIds;
-    mapping(string => bool) private _rpIdExists;
     mapping(string => uint256) private _rpCreatedAt;
     mapping(string => string[]) private _rpCredentials;
 
@@ -113,11 +111,8 @@ contract WebAuthnP256PublicKeyIndex {
             metadata: metadata,
             createdAt: block.timestamp
         });
-        _rpCount[rpId]++;
-
-        if (!_rpIdExists[rpId]) {
+        if (_rpCreatedAt[rpId] == 0) {
             _rpIds.push(rpId);
-            _rpIdExists[rpId] = true;
             _rpCreatedAt[rpId] = block.timestamp;
         }
         _rpCredentials[rpId].push(credentialId);
@@ -149,7 +144,7 @@ contract WebAuthnP256PublicKeyIndex {
 
     /// @notice Get the number of credentials registered under an rpId.
     function getRpCount(string calldata rpId) external view returns (uint256) {
-        return _rpCount[rpId];
+        return _rpCredentials[rpId].length;
     }
 
     /// @notice Total number of distinct rpIds.
@@ -184,7 +179,7 @@ contract WebAuthnP256PublicKeyIndex {
             uint256 idx = desc ? total - 1 - offset - i : offset + i;
             string memory rp = _rpIds[idx];
             rpIds[i] = rp;
-            counts[i] = _rpCount[rp];
+            counts[i] = _rpCredentials[rp].length;
             createdAts[i] = _rpCreatedAt[rp];
         }
     }
