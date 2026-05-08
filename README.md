@@ -37,7 +37,6 @@ Every key traces directly back to the origin credential.
 | Function | Description |
 |---|---|
 | `commit(bytes32)` | Submit commitment hash |
-| `getCommitBlock(bytes32)` | Return the commit block, or 0 if not committed |
 | `createRecord(rpId, credentialId, walletRef, publicKey, name, initialCredentialId, metadata)` | Register a passkey (requires prior commit) |
 
 ### Read — single record
@@ -47,6 +46,7 @@ Every key traces directly back to the origin credential.
 | `getRecord(rpId, credentialId)` → `PublicKeyRecord` | Get a record (reverts if not found) |
 | `getRecordByWalletRef(walletRef)` → `PublicKeyRecord` | Get a record by wallet reference (reverts if not found) |
 | `hasRecord(rpId, credentialId)` → `bool` | Check existence |
+| `getCommitBlock(bytes32)` → `uint256` | Return the commit block, or 0 if not committed |
 
 ### Read — enumeration (paginated, sortable)
 
