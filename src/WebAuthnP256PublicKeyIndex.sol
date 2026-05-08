@@ -30,7 +30,7 @@ contract WebAuthnP256PublicKeyIndex {
     }
 
     mapping(bytes32 => PublicKeyRecord) private _records;
-    mapping(bytes32 => uint256) private _commitBlock;
+    mapping(bytes32 => uint256) private _commitBlockPlusOne;
 
     // Enumeration support
     uint256 private _totalCredentials;
@@ -103,14 +103,15 @@ contract WebAuthnP256PublicKeyIndex {
     /// @notice Commit a future record registration. Must be called before createRecord.
     /// @param commitment keccak256(abi.encode(rpId, credentialId, walletRef, publicKey, name, initialCredentialId, metadata))
     function commit(bytes32 commitment) external {
-        if (_commitBlock[commitment] == 0) {
-            _commitBlock[commitment] = block.number;
+        if (_commitBlockPlusOne[commitment] == 0) {
+            _commitBlockPlusOne[commitment] = block.number + 1;
         }
     }
 
     /// @notice Check if a commitment exists and return the block number it was committed at (0 = not committed).
     function getCommitBlock(bytes32 commitment) external view returns (uint256) {
-        return _commitBlock[commitment];
+        uint256 v = _commitBlockPlusOne[commitment];
+        return v == 0 ? 0 : v - 1;
     }
 
     /// @notice Store a new passkey public key record. Requires a prior commit.
@@ -151,12 +152,12 @@ contract WebAuthnP256PublicKeyIndex {
         // Verify commit-reveal
         bytes32 commitment =
             keccak256(abi.encode(rpId, credentialId, walletRef, publicKey, name, initialCredentialId, metadata));
-        uint256 commitBlock = _commitBlock[commitment];
-        if (commitBlock == 0) revert NotCommitted();
-        if (block.number < commitBlock + REVEAL_DELAY) {
+        uint256 commitBlockPlusOne = _commitBlockPlusOne[commitment];
+        if (commitBlockPlusOne == 0) revert NotCommitted();
+        if (block.number < (commitBlockPlusOne - 1) + REVEAL_DELAY) {
             revert RevealTooEarly();
         }
-        delete _commitBlock[commitment];
+        delete _commitBlockPlusOne[commitment];
 
         bytes32 k = _recordKey(rpId, credentialId);
         if (_recordExists(k)) {
