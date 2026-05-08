@@ -2,6 +2,8 @@
 
 On-chain registry for WebAuthn P256 passkey public keys. Append-only, first come first served.
 
+Built by [Vela Wallet](https://getvela.app).
+
 ## Quick start
 
 ```shell
@@ -75,15 +77,50 @@ Pagination: `offset` = items to skip, `limit` = max items. `desc = true` for new
 
 ## Deployment
 
-This source is `VERSION = 2` and changes the ABI from the earlier Gnosis deployment. Deploy a new v2 contract before migrating data.
-
 Deployed via CREATE2 ([Deterministic Deployment Proxy](https://github.com/Arachnid/deterministic-deployment-proxy)) for consistent address across chains.
+
+The easiest way to deploy is via [biubiu.tools Contract Deployer](https://biubiu.tools/apps/contract-deployer) — paste the bytecode, pick a chain, and deploy with your browser wallet. No CLI or private key export needed.
+
+Or deploy via Foundry:
 
 ```shell
 forge script script/Deploy.s.sol --rpc-url <RPC_URL> --broadcast --private-key <KEY>
 ```
 
-Legacy v1 Gnosis deployment: `0xc1f7Ef155a0ee1B48edbbB5195608e336ae6542b`.
+## v2 vs v1
+
+Current source is `VERSION = 2`. v1 is deployed on Gnosis at [`0xc1f7Ef155a0ee1B48edbbB5195608e336ae6542b`](https://gnosisscan.io/address/0xc1f7Ef155a0ee1B48edbbB5195608e336ae6542b).
+
+### What changed in v2
+
+| Area | v1 | v2 |
+|---|---|---|
+| Public key validation | Length + `0x04` prefix only | Full P-256 curve point verification (`y² = x³ - 3x + b mod p`) |
+| `walletRef` | Not supported | Required globally unique `bytes32` cross-chain wallet reference |
+| Record existence check | `createdAt != 0` | `rpId.length != 0` — correct even when `block.timestamp == 0` |
+| Commit storage | `block.number` | Internal `block.number + 1` sentinel; `getCommitBlock()` returns the real commit block, and repeated commits do not overwrite the first commit block |
+| `getTotalCredentials()` | Not available | Global credential counter |
+| `getTotalCredentialsByRpId()` | Named `getRpCount()` | Renamed for clarity |
+| `getRecordByWalletRef()` | Not available | Query record by wallet address |
+| `getCommitBlock()` | Not available | Check if a commitment exists before submitting |
+| Event `RecordCreated` | 2 indexed fields (`key`, `rpIdHash`) | 3 indexed fields (`key`, `rpIdHash`, `walletRef`) |
+| Solidity version | `^0.8.20` | `0.8.28` pinned, `paris` EVM target |
+
+### Migrating data from v1
+
+Use the migration script to replay all v1 records into the v2 contract:
+
+```shell
+# Phase 1: commit all records
+PRIVATE_KEY=0x... CONTRACT_ADDRESS=0x... PHASE=commit bun run script/migrate.ts
+
+# Wait 1 block
+
+# Phase 2: reveal all records
+PRIVATE_KEY=0x... CONTRACT_ADDRESS=0x... PHASE=reveal bun run script/migrate.ts
+```
+
+The script fetches all existing records from the v1 API, adds `walletRef` and `metadata`, and writes them to the new contract via commit-reveal. Records that already exist on-chain are automatically skipped (idempotent).
 
 ## License
 

@@ -394,6 +394,39 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         index.createRecord("rp1", "cred-1", a, PK1, "Early", "cred-1", "");
     }
 
+    function test_revealAtNextBlock_succeeds() public {
+        bytes32 a = _nextWalletRef();
+        bytes32 commitment = _commitment("rp1", "cred-1", a, PK1, "Next block", "cred-1", "");
+        index.commit(commitment);
+        vm.roll(block.number + index.REVEAL_DELAY());
+
+        index.createRecord("rp1", "cred-1", a, PK1, "Next block", "cred-1", "");
+
+        assertTrue(index.hasRecord("rp1", "cred-1"));
+    }
+
+    function test_commitClearedAfterReveal() public {
+        bytes32 a = _nextWalletRef();
+        bytes32 commitment = _commitment("rp1", "cred-1", a, PK1, "Clear", "cred-1", "");
+        index.commit(commitment);
+        assertEq(index.getCommitBlock(commitment), block.number);
+        vm.roll(block.number + index.REVEAL_DELAY());
+
+        index.createRecord("rp1", "cred-1", a, PK1, "Clear", "cred-1", "");
+
+        assertEq(index.getCommitBlock(commitment), 0);
+    }
+
+    function test_revert_commitmentMismatch() public {
+        bytes32 a = _nextWalletRef();
+        bytes32 commitment = _commitment("rp1", "cred-1", a, PK1, "Expected", "cred-1", "");
+        index.commit(commitment);
+        vm.roll(block.number + index.REVEAL_DELAY());
+
+        vm.expectRevert(WebAuthnP256PublicKeyIndex.NotCommitted.selector);
+        index.createRecord("rp1", "cred-1", a, PK1, "Changed", "cred-1", "");
+    }
+
     function test_commitCanBeRevealedByDifferentCaller() public {
         address alice = makeAddr("alice");
         address bob = makeAddr("bob");
@@ -414,8 +447,11 @@ contract WebAuthnP256PublicKeyIndexTest is Test {
         bytes32 a = _nextWalletRef();
         bytes32 commitment = _commitment("rp1", "cred-1", a, PK1, "Test", "cred-1", "");
         index.commit(commitment);
+        uint256 committedAt = index.getCommitBlock(commitment);
+        assertEq(committedAt, block.number);
         vm.roll(block.number + 5);
         index.commit(commitment); // should not overwrite
+        assertEq(index.getCommitBlock(commitment), committedAt);
         vm.roll(block.number + 2);
         index.createRecord("rp1", "cred-1", a, PK1, "Test", "cred-1", "");
         assertTrue(index.hasRecord("rp1", "cred-1"));

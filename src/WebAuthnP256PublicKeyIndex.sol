@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 /// @title WebAuthnP256PublicKeyIndex
+/// @author Built by Vela Wallet (https://getvela.app)
 /// @notice Stores WebAuthn P256 passkey public keys on-chain.
 ///         Single source of truth for all chains. Records are append-only.
 ///         (rpId, credentialId) is globally unique — first come, first served.
