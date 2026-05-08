@@ -122,6 +122,18 @@ PRIVATE_KEY=0x... CONTRACT_ADDRESS=0x... PHASE=reveal bun run script/migrate.ts
 
 The script fetches all existing records from the v1 API, adds `walletRef` and `metadata`, and writes them to the new contract via commit-reveal. Records that already exist on-chain are automatically skipped (idempotent).
 
+## API service
+
+A companion open-source backend is available at [webauthnp256-publickey-index.biubiu.tools](https://webauthnp256-publickey-index.biubiu.tools/). It indexes on-chain events and exposes a REST API for querying records without direct RPC calls:
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/query?rpId=...&credentialId=...` | Query a single record |
+| `GET /api/stats/sites?page=1&pageSize=20&order=desc` | List all sites (paginated) |
+| `GET /api/stats/keys?rpId=...&page=1&pageSize=20&order=desc` | List all keys under a site (paginated) |
+
+The API mirrors the on-chain view functions but returns JSON with millisecond timestamps for web compatibility. Source code: [atshelchin/webauthnp256-publickey-index.biubiu.tools](https://github.com/atshelchin/webauthnp256-publickey-index.biubiu.tools).
+
 ## License
 
 MIT
