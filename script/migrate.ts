@@ -1,3 +1,20 @@
+/**
+ * Migrate v1 records to v2 contract via commit-reveal.
+ *
+ * Usage:
+ *   PRIVATE_KEY=0x... CONTRACT_ADDRESS=0x... PHASE=commit bun run script/migrate.ts
+ *   # wait 1 block (~5s on Gnosis)
+ *   PRIVATE_KEY=0x... CONTRACT_ADDRESS=0x... PHASE=reveal bun run script/migrate.ts
+ *
+ * Env:
+ *   PRIVATE_KEY       - Deployer private key (required)
+ *   CONTRACT_ADDRESS  - v2 contract address (required)
+ *   PHASE             - "commit" or "reveal" (default: commit)
+ *   RPC_URL           - RPC endpoint (default: https://rpc.gnosischain.com)
+ *   API_BASE          - v1 API base URL (default: https://webauthnp256-publickey-index.biubiu.tools)
+ *
+ * Idempotent: existing records are skipped automatically.
+ */
 import {
   createWalletClient,
   createPublicClient,
